@@ -26,17 +26,18 @@ cpu: filtro_secuencial.cpp
 all: cpu gpu
 	@echo "Compilación completada: visionCPU.bin y visionGPU.bin"
 
+
 # Ejecutar GPU
 runGPU:
 	LD_LIBRARY_PATH=/home/justin/Documentos/opencv/opencvi/lib/:$$LD_LIBRARY_PATH \
-	./visionGPU.bin $(IMG) $(MASK) $(OUT)
+	./visionGPU.bin $(IMG) $(FILTRO) $(MASK)
 
 # Ejecutar CPU
 runCPU:
 	LD_LIBRARY_PATH=/home/justin/Documentos/opencv/opencvi/lib/:$$LD_LIBRARY_PATH \
-	./visionCPU.bin $(IMG) $(MASK) $(OUT)
+	./visionCPU.bin $(IMG) $(FILTRO) $(MASK)
 
 clean:
-	rm -f visionCPU.bin visionGPU.bin
+	rm -f visionCPU.bin visionGPU.bin practica1 *_cpu*.png *_gpu*.png
 
 .PHONY: all gpu cpu runGPU runCPU clean
