@@ -23,8 +23,8 @@ cpu: filtro_secuencial.cpp
 	-o visionCPU.bin
 
 # Compilar ambas
-all: cpu gpu
-	@echo "Compilación completada: visionCPU.bin y visionGPU.bin"
+all: cpu gpu comprobador
+	@echo "Compilación completada: visionCPU.bin, visionGPU.bin y comprobador.bin"
 
 
 # Ejecutar GPU
@@ -37,7 +37,13 @@ runCPU:
 	LD_LIBRARY_PATH=/home/justin/Documentos/opencv/opencvi/lib/:$$LD_LIBRARY_PATH \
 	./visionCPU.bin $(IMG) $(FILTRO) $(MASK)
 
+# Compilar Comprobador
+comprobador: comprobador.cpp
+	g++ comprobador.cpp -std=c++17 -O2 \
+	$(OPENCV_INC) $(OPENCV_LIB) $(OPENCV_LINK) \
+	-o comprobador.bin
+
 clean:
-	rm -f visionCPU.bin visionGPU.bin practica1 *_cpu*.png *_gpu*.png
+	rm -f visionCPU.bin visionGPU.bin comprobador.bin *_cpu*.png *_gpu*.png
 
 .PHONY: all gpu cpu runGPU runCPU clean

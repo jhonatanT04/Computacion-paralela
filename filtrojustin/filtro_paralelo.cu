@@ -4,7 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
 
-#define BLOCK_SIZE_1D 256
+#define BLOCK_SIZE_1D 1024
 
 // Genera un filtro de Media (Box Blur). Todos los pesos son iguales (1/N^2)
 // Produce un efecto de suavizado/desenfoque.
