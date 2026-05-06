@@ -4,7 +4,8 @@
 #include <opencv2/opencv.hpp>
 #include <stdio.h>
 
-#define BLOCK_SIZE_1D 1024
+#define BLOCK_SIZE_X 32
+#define BLOCK_SIZE_Y 32
 
 // Genera un filtro de Media (Box Blur). Todos los pesos son iguales (1/N^2)
 // Produce un efecto de suavizado/desenfoque.
@@ -36,18 +37,17 @@ void generarFiltroEnfoque(float *mascara, int tamano) {
   mascara[(tamano / 2) * tamano + (tamano / 2)] = 2.0f;
 }
 
-// Kernel de convolución usando únicamente hilos y bloques en dimensión X
-// (Requerimiento PDF). Mapea el ID global lineal 'tid' a coordenadas 2D (x, y).
+// Kernel de convolución usando hilos y bloques en 2 dimensiones (X e Y).
 __global__ void convolucion_GPU(const unsigned char *entrada,
                                 unsigned char *salida, int ancho, int alto,
                                 const float *mascara, int tamMascara) {
-  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  int x = blockIdx.x * blockDim.x + threadIdx.x;
+  int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-  if (tid >= ancho * alto)
+  if (x >= ancho || y >= alto)
     return;
 
-  int x = tid % ancho;
-  int y = tid / ancho;
+  int tid = y * ancho + x;
 
   int mitadMascara = tamMascara / 2;
   float suma = 0.0f;
@@ -113,10 +113,10 @@ int main(int argc, char **argv) {
   cudaMemcpy(d_entrada, imagen.data, tamImagenBytes, cudaMemcpyHostToDevice);
   cudaMemcpy(d_mascara, h_mascara, tamMascaraBytes, cudaMemcpyHostToDevice);
 
-  // Configuración 1D para el kernel
-  int totalPixeles = ancho * alto;
-  dim3 dimBloque(BLOCK_SIZE_1D);
-  dim3 dimGrid((totalPixeles + BLOCK_SIZE_1D - 1) / BLOCK_SIZE_1D);
+  // Configuración 2D para el kernel
+  dim3 dimBloque(BLOCK_SIZE_X, BLOCK_SIZE_Y);
+  dim3 dimGrid((ancho + BLOCK_SIZE_X - 1) / BLOCK_SIZE_X, 
+               (alto + BLOCK_SIZE_Y - 1) / BLOCK_SIZE_Y);
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
