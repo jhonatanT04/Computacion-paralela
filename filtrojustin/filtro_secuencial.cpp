@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
     auto finCPU = std::chrono::high_resolution_clock::now();
     
     double tiempoCPU_ms = std::chrono::duration<double, std::milli>(finCPU - inicioCPU).count();
-    printf("CPU (%dx%d | Máscara %dx%d) - Tiempo: %.2f ms\n", ancho, alto, tamMascara, tamMascara, tiempoCPU_ms);
+    printf("CPU (%dx%d | Máscara %dx%d) - Tiempo: %.2f ms (%.2f s)\n", ancho, alto, tamMascara, tamMascara, tiempoCPU_ms, tiempoCPU_ms / 1000.0);
 
     std::string baseOut = (idFiltro==1?"media":idFiltro==2?"bordes":"enfoque");
     cv::imwrite(baseOut + "_cpu_mask" + std::to_string(tamMascara) + ".png", cv::Mat(alto, ancho, CV_8UC1, h_salidaCPU));

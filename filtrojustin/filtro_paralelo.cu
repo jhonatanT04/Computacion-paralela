@@ -1,19 +1,10 @@
 #include <cmath>
-#include <stdio.h>
 #include <cstdlib>
 #include <cuda_runtime.h>
 #include <opencv2/opencv.hpp>
+#include <stdio.h>
 
 #define BLOCK_SIZE_1D 256
-
-#define CHECK_CUDA(call)                                                       \
-  {                                                                            \
-    cudaError_t err = call;                                                    \
-    if (err != cudaSuccess) {                                                  \
-      fprintf(stderr, "Error CUDA: %s\n", cudaGetErrorString(err));            \
-      exit(1);                                                                 \
-    }                                                                          \
-  }
 
 // Genera un filtro de Media (Box Blur). Todos los pesos son iguales (1/N^2)
 // Produce un efecto de suavizado/desenfoque.
@@ -115,14 +106,12 @@ int main(int argc, char **argv) {
   unsigned char *d_entrada, *d_salida;
   float *d_mascara;
 
-  CHECK_CUDA(cudaMalloc(&d_entrada, tamImagenBytes));
-  CHECK_CUDA(cudaMalloc(&d_salida, tamImagenBytes));
-  CHECK_CUDA(cudaMalloc(&d_mascara, tamMascaraBytes));
+  cudaMalloc(&d_entrada, tamImagenBytes);
+  cudaMalloc(&d_salida, tamImagenBytes);
+  cudaMalloc(&d_mascara, tamMascaraBytes);
 
-  CHECK_CUDA(cudaMemcpy(d_entrada, imagen.data, tamImagenBytes,
-                        cudaMemcpyHostToDevice));
-  CHECK_CUDA(cudaMemcpy(d_mascara, h_mascara, tamMascaraBytes,
-                        cudaMemcpyHostToDevice));
+  cudaMemcpy(d_entrada, imagen.data, tamImagenBytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_mascara, h_mascara, tamMascaraBytes, cudaMemcpyHostToDevice);
 
   // Configuración 1D para el kernel
   int totalPixeles = ancho * alto;
@@ -142,11 +131,10 @@ int main(int argc, char **argv) {
   float tiempoGPU_ms = 0;
   cudaEventElapsedTime(&tiempoGPU_ms, start, stop);
 
-  CHECK_CUDA(cudaMemcpy(h_salidaGPU, d_salida, tamImagenBytes,
-                        cudaMemcpyDeviceToHost));
+  cudaMemcpy(h_salidaGPU, d_salida, tamImagenBytes, cudaMemcpyDeviceToHost);
 
-  printf("GPU (%dx%d | Máscara %dx%d) - Tiempo: %.2f ms\n", ancho, alto,
-         tamMascara, tamMascara, tiempoGPU_ms);
+  printf("GPU (%dx%d | Máscara %dx%d) - Tiempo: %.2f ms (%.2f s)\n", ancho,
+         alto, tamMascara, tamMascara, tiempoGPU_ms, tiempoGPU_ms / 1000.0);
 
   std::string baseOut = (idFiltro == 1   ? "media"
                          : idFiltro == 2 ? "bordes"
@@ -154,9 +142,9 @@ int main(int argc, char **argv) {
   cv::imwrite(baseOut + "_gpu_mask" + std::to_string(tamMascara) + ".png",
               cv::Mat(alto, ancho, CV_8UC1, h_salidaGPU));
 
-  CHECK_CUDA(cudaFree(d_entrada));
-  CHECK_CUDA(cudaFree(d_salida));
-  CHECK_CUDA(cudaFree(d_mascara));
+  cudaFree(d_entrada);
+  cudaFree(d_salida);
+  cudaFree(d_mascara);
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
   delete[] h_mascara;
