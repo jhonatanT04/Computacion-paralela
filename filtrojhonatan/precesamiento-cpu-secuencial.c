@@ -8,6 +8,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <linux/time.h>
 
 
 static void build_emboss_kernel(float* k, int n)
@@ -98,7 +99,17 @@ int main(int argc, char** argv)
         size_t k_bytes = (size_t)ksize * ksize * sizeof(float);
         float* h_k = (float*)malloc(k_bytes);
         build_emboss_kernel(h_k, ksize);
+
+        struct timespec ts, te;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+
         emboss_cpu(h_src, h_dst, h_k, W, H, ksize);
+
+        clock_gettime(CLOCK_MONOTONIC, &te);
+        double ms = (te.tv_sec - ts.tv_sec) * 1000.0
+                  + (te.tv_nsec - ts.tv_nsec) / 1e6;
+        printf("Tiempo CPU: %.3f ms\n", ms);
+
         free(h_k);
     } else {
         fprintf(stderr, "kernel_size demasiado grande (half > 31)\n");
