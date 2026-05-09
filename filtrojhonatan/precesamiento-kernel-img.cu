@@ -1,8 +1,4 @@
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image.h"
-#include "stb_image_write.h"
-
+#include <opencv2/opencv.hpp>
 #include <cuda_runtime.h>
 #include <cufft.h>
 #include <stdio.h>
@@ -19,10 +15,11 @@ __global__ void emboss_global(
     const float *__restrict__ kernel,
     int W, int H, int ksize)
 {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= W || y >= H)
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= W * H)
         return;
+    int x = i % W;
+    int y = i / W;
 
     int half = ksize / 2;
     float sum = 0.f;
@@ -51,10 +48,11 @@ __global__ void place_kernel_wrapped(
     int padW, int padH,
     int ksize)
 {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= padW || y >= padH)
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= padW * padH)
         return;
+    int x = i % padW;
+    int y = i / padW;
 
     int half = ksize / 2;
 
@@ -112,10 +110,11 @@ __global__ void fft_result_to_rgba(
     float norm_kernel,
     int ksize)
 {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    if (x >= W || y >= H)
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= W * H)
         return;
+    int x = i % W;
+    int y = i / W;
 
     float val = src[y * padW + x] * norm_fft / norm_kernel + 128.f;
     int v = min(max((int)(val + 0.5f), 0), 255);
@@ -143,11 +142,20 @@ int main(int argc, char **argv)
 
     const char *input_path = argv[1];
     const char *output_path = argv[2];
-    int ksize = 65;
-    // int ksize = (argc >= 4) ? atoi(argv[3]) : 3;
+    // int ksize = 65;
+    int ksize = (argc >= 4) ? atoi(argv[3]) : 65;
 
-    int W, H, ch;
-    unsigned char *h_src = stbi_load(input_path, &W, &H, &ch, 4);
+    cv::Mat img = cv::imread(input_path, cv::IMREAD_COLOR);
+    if (img.empty())
+    {
+        fprintf(stderr, "Error al cargar '%s'\n", input_path);
+        return EXIT_FAILURE;
+    }
+    cv::Mat img_rgba;
+    cv::cvtColor(img, img_rgba, cv::COLOR_BGR2RGBA);
+    int W = img_rgba.cols;
+    int H = img_rgba.rows;
+    unsigned char *h_src = img_rgba.data;
 
     size_t img_bytes = (size_t)W * H * 4;
     unsigned char *d_src, *d_dst;
@@ -155,8 +163,8 @@ int main(int argc, char **argv)
     cudaMalloc(&d_dst, img_bytes);
     cudaMemcpy(d_src, h_src, img_bytes, cudaMemcpyHostToDevice);
 
-    dim3 block(16, 16);
-    dim3 grid((W + 15) / 16, (H + 15) / 16);
+    int block = 256;
+    int grid = (W * H + block - 1) / block;
 
     int half = ksize / 2;
 
@@ -189,12 +197,14 @@ int main(int argc, char **argv)
     unsigned char *h_dst = (unsigned char *)malloc(img_bytes);
     cudaMemcpy(h_dst, d_dst, img_bytes, cudaMemcpyDeviceToHost);
 
-    if (!stbi_write_png(output_path, W, H, 4, h_dst, W * 4))
+    cv::Mat out(H, W, CV_8UC4, h_dst);
+    cv::Mat out_bgr;
+    cv::cvtColor(out, out_bgr, cv::COLOR_RGBA2BGR);
+    if (!cv::imwrite(output_path, out_bgr))
         fprintf(stderr, "Error al guardar '%s'\n", output_path);
     else
         printf("Guardado: %s\n", output_path);
 
-    stbi_image_free(h_src);
     free(h_dst);
     cudaFree(d_src);
     cudaFree(d_dst);
